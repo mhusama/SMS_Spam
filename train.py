@@ -16,7 +16,6 @@ from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
-# Download NLTK data if needed
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
 
@@ -36,7 +35,7 @@ def clean_text(text):
     ]
     return ' '.join(tokens)
 
-def load_and_preprocess_data():
+def train_model():
     csv_file = "spam.csv" if os.path.exists("spam.csv") else "SMS.csv"
     try:
         df = pd.read_csv(csv_file, encoding="latin-1")
@@ -47,41 +46,39 @@ def load_and_preprocess_data():
         df = df[['v1', 'v2']]
         df.columns = ['label', 'message']
 
-    df = df.drop_duplicates()
+    df = df.drop_duplicates().reset_index(drop=True)
     df['clean_message'] = df['message'].apply(clean_text)
     df['label'] = df['label'].map({'ham': 0, 'spam': 1})
     
-    # Balance dataset via oversampling minority class (spam)
-    df_ham = df[df.label == 0]
-    df_spam = df[df.label == 1]
-    df_spam_oversampled = resample(df_spam, replace=True, n_samples=len(df_ham), random_state=42)
-    df_balanced = pd.concat([df_ham, df_spam_oversampled]).reset_index(drop=True)
-    
-    return df, df_balanced
-
-def train_model():
-    df_original, df_balanced = load_and_preprocess_data()
-    
-    print("=== SMS Spam SVM Classifier Training ===")
-    print("Original Dataset Counts:\n", df_original['label'].value_counts().to_dict())
-    print("Balanced Dataset Counts:\n", df_balanced['label'].value_counts().to_dict())
-    
-    X = df_balanced['clean_message']
-    y = df_balanced['label']
-    
+    # 1. SPLIT FIRST (LEAK-FREE)
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=42, stratify=y
+        df['clean_message'], df['label'], test_size=0.20, random_state=42, stratify=df['label']
     )
+    
+    # 2. OVERSAMPLE TRAINING SET ONLY
+    train_df = pd.DataFrame({'clean_message': X_train, 'label': y_train})
+    train_ham = train_df[train_df.label == 0]
+    train_spam = train_df[train_df.label == 1]
+    
+    train_spam_oversampled = resample(train_spam, replace=True, n_samples=len(train_ham), random_state=42)
+    train_balanced = pd.concat([train_ham, train_spam_oversampled]).reset_index(drop=True)
+    
+    X_train_bal = train_balanced['clean_message']
+    y_train_bal = train_balanced['label']
+    
+    print("=== SMS Spam SVM Classifier Training (Leak-Free Pipeline) ===")
+    print("Raw Train counts:", y_train.value_counts().to_dict())
+    print("Balanced Train counts:", y_train_bal.value_counts().to_dict())
+    print("Pure Test counts:", y_test.value_counts().to_dict())
     
     pipeline = Pipeline([
         ('tfidf', TfidfVectorizer(max_features=5000, ngram_range=(1, 2))),
         ('svm', LinearSVC(random_state=42))
     ])
     
-    # Hyperparameter tuning
     param_grid = {'svm__C': [0.1, 1, 10]}
     grid = GridSearchCV(pipeline, param_grid, cv=5)
-    grid.fit(X_train, y_train)
+    grid.fit(X_train_bal, y_train_bal)
     
     best_model = grid.best_estimator_
     pred = best_model.predict(X_test)
@@ -93,12 +90,10 @@ def train_model():
     print("F1-Score :", f1_score(y_test, pred))
     print("\nClassification Report:\n", classification_report(y_test, pred))
     
-    # 5-Fold Cross Validation
-    scores = cross_val_score(best_model, df_balanced['clean_message'], df_balanced['label'], cv=5)
-    print("5-Fold CV Scores:", scores)
-    print("Mean CV Accuracy:", scores.mean())
+    scores = cross_val_score(best_model, X_train_bal, y_train_bal, cv=5)
+    print("5-Fold CV Scores (on training folds):", scores)
+    print("Mean CV Accuracy (on training folds):", scores.mean())
     
-    # Save trained model
     joblib.dump(best_model, "sms_spam_pipeline.pkl")
     print("\nModel saved to sms_spam_pipeline.pkl!")
 
