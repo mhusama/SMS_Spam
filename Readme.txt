@@ -7,5 +7,7 @@ catching 2 extra spam messages that _old missed
 (Recall increased to 90.84%).
 
 Cons: Because it became more aggressive at catching spam, 
-it flagged 6 additional borderline ham messages as spam 
-(11 false positives vs. 5 in _old).
+it flagged  additional borderline ham messages as spam 
+
+Since accuracy only decreased from 98% to 97%, catching more spams
+seems like a good improvement
