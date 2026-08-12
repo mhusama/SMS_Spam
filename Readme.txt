@@ -1,0 +1,11 @@
+
+In _new, by oversampling spam in the training set to a 50/50 ratio, 
+we forced the SVM model to give equal importance to spam patterns.
+
+Pros: The model became more sensitive to detecting spam, 
+catching 2 extra spam messages that _old missed 
+(Recall increased to 90.84%).
+
+Cons: Because it became more aggressive at catching spam, 
+it flagged 6 additional borderline ham messages as spam 
+(11 false positives vs. 5 in _old).
