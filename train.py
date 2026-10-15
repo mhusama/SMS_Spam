@@ -10,7 +10,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 from sklearn.utils import resample
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
@@ -21,6 +21,11 @@ nltk.download('wordnet', quiet=True)
 
 stop_words = set(stopwords.words('english'))
 lemm = WordNetLemmatizer()
+
+HAM_SAMPLE_COUNT = 3600
+SPAM_SAMPLE_COUNTS = (1200, 1800, 2400, 3000, 3600)
+REPORT_FILE = "spam_ratio_experiment_report.txt"
+
 
 def clean_text(text):
     text = str(text).lower()
@@ -55,47 +60,123 @@ def train_model():
         df['clean_message'], df['label'], test_size=0.20, random_state=42, stratify=df['label']
     )
     
-    # 2. OVERSAMPLE TRAINING SET ONLY
+    # 2. Compare the original training distribution with fixed ham/spam ratios.
     train_df = pd.DataFrame({'clean_message': X_train, 'label': y_train})
     train_ham = train_df[train_df.label == 0]
     train_spam = train_df[train_df.label == 1]
-    
-    train_spam_oversampled = resample(train_spam, replace=True, n_samples=len(train_ham), random_state=42)
-    train_balanced = pd.concat([train_ham, train_spam_oversampled]).reset_index(drop=True)
-    
-    X_train_bal = train_balanced['clean_message']
-    y_train_bal = train_balanced['label']
-    
-    print("=== SMS Spam SVM Classifier Training (Leak-Free Pipeline) ===")
+
+    if len(train_ham) < HAM_SAMPLE_COUNT:
+        raise ValueError(
+            f"The training split has {len(train_ham)} ham messages; "
+            f"{HAM_SAMPLE_COUNT} are required for the ratio experiment."
+        )
+
+    experiment_sets = [("OG:OG (original distribution)", train_df)]
+    sampled_ham = resample(
+        train_ham,
+        replace=False,
+        n_samples=HAM_SAMPLE_COUNT,
+        random_state=42
+    )
+    for spam_count in SPAM_SAMPLE_COUNTS:
+        sampled_spam = resample(
+            train_spam,
+            replace=True,
+            n_samples=spam_count,
+            random_state=42
+        )
+        experiment_sets.append(
+            (f"{HAM_SAMPLE_COUNT}:{spam_count}",
+             pd.concat([sampled_ham, sampled_spam]).reset_index(drop=True))
+        )
+
+    print("=== SMS Spam SVM Classifier Ratio Experiment ===")
     print("Raw Train counts:", y_train.value_counts().to_dict())
-    print("Balanced Train counts:", y_train_bal.value_counts().to_dict())
     print("Pure Test counts:", y_test.value_counts().to_dict())
-    
-    pipeline = Pipeline([
-        ('tfidf', TfidfVectorizer(max_features=5000, ngram_range=(1, 2))),
-        ('svm', LinearSVC(random_state=42))
-    ])
-    
+
     param_grid = {'svm__C': [0.1, 1, 10]}
-    grid = GridSearchCV(pipeline, param_grid, cv=5)
-    grid.fit(X_train_bal, y_train_bal)
-    
-    best_model = grid.best_estimator_
-    pred = best_model.predict(X_test)
-    
-    print("\nBest Parameters:", grid.best_params_)
-    print("Accuracy :", accuracy_score(y_test, pred))
-    print("Precision:", precision_score(y_test, pred))
-    print("Recall   :", recall_score(y_test, pred))
-    print("F1-Score :", f1_score(y_test, pred))
-    print("\nClassification Report:\n", classification_report(y_test, pred))
-    
-    scores = cross_val_score(best_model, X_train_bal, y_train_bal, cv=5)
-    print("5-Fold CV Scores (on training folds):", scores)
-    print("Mean CV Accuracy (on training folds):", scores.mean())
-    
-    joblib.dump(best_model, "sms_spam_pipeline.pkl")
-    print("\nModel saved to sms_spam_pipeline.pkl!")
+    results = []
+    final_model = None
+
+    for ratio, experiment_df in experiment_sets:
+        X_experiment = experiment_df['clean_message']
+        y_experiment = experiment_df['label']
+        pipeline = Pipeline([
+            ('tfidf', TfidfVectorizer(max_features=5000, ngram_range=(1, 2))),
+            ('svm', LinearSVC(random_state=42))
+        ])
+        grid = GridSearchCV(pipeline, param_grid, cv=5)
+        grid.fit(X_experiment, y_experiment)
+
+        best_model = grid.best_estimator_
+        pred = best_model.predict(X_test)
+        result = {
+            'ratio': ratio,
+            'train_counts': y_experiment.value_counts().to_dict(),
+            'best_params': grid.best_params_,
+            'cv_accuracy': grid.best_score_,
+            'accuracy': accuracy_score(y_test, pred),
+            'precision': precision_score(y_test, pred),
+            'recall': recall_score(y_test, pred),
+            'f1': f1_score(y_test, pred),
+            'classification_report': classification_report(y_test, pred),
+        }
+        results.append(result)
+
+        print(
+            f"\n{ratio} (ham:spam) | "
+            f"train={result['train_counts']} | "
+            f"accuracy={result['accuracy']:.4f} | "
+            f"precision={result['precision']:.4f} | "
+            f"recall={result['recall']:.4f} | "
+            f"f1={result['f1']:.4f}"
+        )
+        print("Best Parameters:", grid.best_params_)
+
+        if ratio == f"{HAM_SAMPLE_COUNT}:{SPAM_SAMPLE_COUNTS[-1]}":
+            final_model = best_model
+
+    report_lines = [
+        "SMS Spam SVM - Ham/Spam Training Ratio Experiment",
+        "=" * 54,
+        f"Dataset: {csv_file}",
+        "Split: stratified 80% train / 20% test, random_state=42",
+        "Test set: same untouched holdout for every experiment",
+        f"Training split original counts (label 0=ham, 1=spam): {y_train.value_counts().to_dict()}",
+        f"Test split counts (label 0=ham, 1=spam): {y_test.value_counts().to_dict()}",
+        "",
+        "Holdout metrics by training ratio (ham:spam):",
+    ]
+    for result in results:
+        report_lines.extend([
+            "",
+            f"Ratio: {result['ratio']}",
+            f"  Training counts (ham:spam): "
+            f"{result['train_counts'].get(0, 0)}:{result['train_counts'].get(1, 0)}",
+            f"  Best SVM parameters: {result['best_params']}",
+            f"  5-fold CV accuracy: {result['cv_accuracy']:.4f}",
+            f"  Test accuracy: {result['accuracy']:.4f}",
+            f"  Test precision: {result['precision']:.4f}",
+            f"  Test recall: {result['recall']:.4f}",
+            f"  Test F1-score: {result['f1']:.4f}",
+            "  Classification report:",
+            *[f"    {line}" for line in result['classification_report'].rstrip().splitlines()],
+        ])
+
+    report_lines.extend([
+        "",
+        "Saved model: sms_spam_pipeline.pkl",
+        f"Saved model training ratio: {HAM_SAMPLE_COUNT}:{SPAM_SAMPLE_COUNTS[-1]} (ham:spam)",
+        "",
+    ])
+    with open(REPORT_FILE, "w", encoding="utf-8") as report_file:
+        report_file.write("\n".join(report_lines))
+
+    if final_model is None:
+        raise RuntimeError("The 3600:3600 experiment did not produce a model.")
+    joblib.dump(final_model, "sms_spam_pipeline.pkl")
+    print(f"\nExperiment report saved to {REPORT_FILE}")
+    print("Model saved to sms_spam_pipeline.pkl!")
 
 if __name__ == "__main__":
     train_model()

@@ -1,0 +1,120 @@
+SMS Spam SVM - Ham/Spam Training Ratio Experiment
+======================================================
+Dataset: spam.csv
+Split: stratified 80% train / 20% test, random_state=42
+Test set: same untouched holdout for every experiment
+Training split original counts (label 0=ham, 1=spam): {0: 3613, 1: 522}
+Test split counts (label 0=ham, 1=spam): {0: 903, 1: 131}
+
+Holdout metrics by training ratio (ham:spam):
+
+Ratio: OG:OG (original distribution)
+  Training counts (ham:spam): 3613:522
+  Best SVM parameters: {'svm__C': 1}
+  5-fold CV accuracy: 0.9794
+  Test accuracy: 0.9816
+  Test precision: 0.9590
+  Test recall: 0.8931
+  Test F1-score: 0.9249
+  Classification report:
+                  precision    recall  f1-score   support
+    
+               0       0.98      0.99      0.99       903
+               1       0.96      0.89      0.92       131
+    
+        accuracy                           0.98      1034
+       macro avg       0.97      0.94      0.96      1034
+    weighted avg       0.98      0.98      0.98      1034
+
+Ratio: 3600:1200
+  Training counts (ham:spam): 3600:1200
+  Best SVM parameters: {'svm__C': 10}
+  5-fold CV accuracy: 0.9890
+  Test accuracy: 0.9797
+  Test precision: 0.9365
+  Test recall: 0.9008
+  Test F1-score: 0.9183
+  Classification report:
+                  precision    recall  f1-score   support
+    
+               0       0.99      0.99      0.99       903
+               1       0.94      0.90      0.92       131
+    
+        accuracy                           0.98      1034
+       macro avg       0.96      0.95      0.95      1034
+    weighted avg       0.98      0.98      0.98      1034
+
+Ratio: 3600:1800
+  Training counts (ham:spam): 3600:1800
+  Best SVM parameters: {'svm__C': 1}
+  5-fold CV accuracy: 0.9935
+  Test accuracy: 0.9797
+  Test precision: 0.9435
+  Test recall: 0.8931
+  Test F1-score: 0.9176
+  Classification report:
+                  precision    recall  f1-score   support
+    
+               0       0.98      0.99      0.99       903
+               1       0.94      0.89      0.92       131
+    
+        accuracy                           0.98      1034
+       macro avg       0.96      0.94      0.95      1034
+    weighted avg       0.98      0.98      0.98      1034
+
+Ratio: 3600:2400
+  Training counts (ham:spam): 3600:2400
+  Best SVM parameters: {'svm__C': 1}
+  5-fold CV accuracy: 0.9945
+  Test accuracy: 0.9807
+  Test precision: 0.9302
+  Test recall: 0.9160
+  Test F1-score: 0.9231
+  Classification report:
+                  precision    recall  f1-score   support
+    
+               0       0.99      0.99      0.99       903
+               1       0.93      0.92      0.92       131
+    
+        accuracy                           0.98      1034
+       macro avg       0.96      0.95      0.96      1034
+    weighted avg       0.98      0.98      0.98      1034
+
+Ratio: 3600:3000
+  Training counts (ham:spam): 3600:3000
+  Best SVM parameters: {'svm__C': 10}
+  5-fold CV accuracy: 0.9956
+  Test accuracy: 0.9768
+  Test precision: 0.9213
+  Test recall: 0.8931
+  Test F1-score: 0.9070
+  Classification report:
+                  precision    recall  f1-score   support
+    
+               0       0.98      0.99      0.99       903
+               1       0.92      0.89      0.91       131
+    
+        accuracy                           0.98      1034
+       macro avg       0.95      0.94      0.95      1034
+    weighted avg       0.98      0.98      0.98      1034
+
+Ratio: 3600:3600
+  Training counts (ham:spam): 3600:3600
+  Best SVM parameters: {'svm__C': 10}
+  5-fold CV accuracy: 0.9958
+  Test accuracy: 0.9768
+  Test precision: 0.9213
+  Test recall: 0.8931
+  Test F1-score: 0.9070
+  Classification report:
+                  precision    recall  f1-score   support
+    
+               0       0.98      0.99      0.99       903
+               1       0.92      0.89      0.91       131
+    
+        accuracy                           0.98      1034
+       macro avg       0.95      0.94      0.95      1034
+    weighted avg       0.98      0.98      0.98      1034
+
+Saved model: sms_spam_pipeline.pkl
+Saved model training ratio: 3600:3600 (ham:spam)
