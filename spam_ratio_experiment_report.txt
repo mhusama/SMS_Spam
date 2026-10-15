@@ -118,3 +118,16 @@ Ratio: 3600:3600
 
 Saved model: sms_spam_pipeline.pkl
 Saved model training ratio: 3600:3600 (ham:spam)
+
+FINAL COMPARISON - HOLDOUT TEST RESULTS
+Ratio (ham:spam)             Accuracy   Ham reported as spam   Spam reported as ham
+----------------------------  --------   --------------------   --------------------
+OG:OG (original distribution)   98.16%                     5                     14
+3600:1200                      97.97%                     8                     13
+3600:1800                      97.97%                     7                     14
+3600:2400                      98.07%                     9                     11
+3600:3000                      97.68%                    10                     14
+3600:3600                      97.68%                    10                     14
+
+Ham reported as spam = ham messages incorrectly classified as spam.
+Spam reported as ham = spam messages incorrectly classified as ham.

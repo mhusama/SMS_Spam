@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, classification_report
 
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
@@ -110,12 +110,17 @@ def train_model():
 
         best_model = grid.best_estimator_
         pred = best_model.predict(X_test)
+        tn, ham_as_spam, spam_as_ham, tp = confusion_matrix(
+            y_test, pred, labels=[0, 1]
+        ).ravel()
         result = {
             'ratio': ratio,
             'train_counts': y_experiment.value_counts().to_dict(),
             'best_params': grid.best_params_,
             'cv_accuracy': grid.best_score_,
             'accuracy': accuracy_score(y_test, pred),
+            'ham_as_spam': int(ham_as_spam),
+            'spam_as_ham': int(spam_as_ham),
             'precision': precision_score(y_test, pred),
             'recall': recall_score(y_test, pred),
             'f1': f1_score(y_test, pred),
@@ -167,6 +172,22 @@ def train_model():
         "",
         "Saved model: sms_spam_pipeline.pkl",
         f"Saved model training ratio: {HAM_SAMPLE_COUNT}:{SPAM_SAMPLE_COUNTS[-1]} (ham:spam)",
+        "",
+        "FINAL COMPARISON - HOLDOUT TEST RESULTS",
+        "Ratio (ham:spam)             Accuracy   Ham reported as spam   Spam reported as ham",
+        "----------------------------  --------   --------------------   --------------------",
+    ])
+    for result in results:
+        report_lines.append(
+            f"{result['ratio']:<28}  "
+            f"{result['accuracy'] * 100:>6.2f}%"
+            f"{result['ham_as_spam']:>22}"
+            f"{result['spam_as_ham']:>23}"
+        )
+    report_lines.extend([
+        "",
+        "Ham reported as spam = ham messages incorrectly classified as spam.",
+        "Spam reported as ham = spam messages incorrectly classified as ham.",
         "",
     ])
     with open(REPORT_FILE, "w", encoding="utf-8") as report_file:
