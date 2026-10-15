@@ -4,8 +4,8 @@ This project trains a text classifier to label SMS messages as **ham** (not spam
 
 ## How it works
 
-1. `train.py` reads `spam.csv` if it exists; otherwise it reads `SMS.csv`.
-2. It removes duplicate rows, cleans the message text, and encodes ham as `0` and spam as `1`.
+1. `SMS_Spam_Training_Experiment.ipynb` reads `spam.csv` if it exists; otherwise it reads `SMS.csv`.
+2. It removes duplicate rows, then cleans each message by lowercasing it, removing URLs, email addresses, digits, punctuation, and English stop words, and lemmatizing the remaining words. In the notebook, see the **Text-cleaning function** cell (`clean_text`). The cleaned text is stored in `clean_message`, and labels are encoded as ham `0` and spam `1`.
 3. It makes one stratified 80% training / 20% test split (`random_state=42`). The same held-out test set is used for every ratio experiment.
 4. It compares the original training distribution with five sampled training sets: `3600:1200`, `3600:1800`, `3600:2400`, `3600:3000`, and `3600:3600` (ham:spam).
 5. Each training set is converted to TF-IDF features and used to train a Linear SVM. Five-fold cross-validation selects the best `C` from `0.1`, `1`, and `10`.
@@ -32,7 +32,7 @@ Results below are from the current `spam_ratio_experiment_report.txt`. All rows 
 
 The original-distribution model achieved the highest test accuracy and F1 in this run. The `3600:2400` model identified the largest share of spam messages (highest spam recall). Increasing the number of oversampled spam entries did not consistently improve test performance.
 
-The saved `sms_spam_pipeline.pkl` is specifically the model trained with the `3600:3600` ratio; it is not the best-scoring model from the comparison. To change which experiment is saved, update the final-model selection in `train.py`.
+The saved `sms_spam_pipeline.pkl` is specifically the model trained with the `3600:3600` ratio; it is not the best-scoring model from the comparison.
 
 ## Run the project
 
@@ -42,11 +42,7 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Train the models and regenerate the report:
-
-```bash
-python train.py
-```
+Open `SMS_Spam_Training_Experiment.ipynb` and run its cells from top to bottom to train and compare the models, regenerate the report, and save the model.
 
 If neither dataset CSV is available, run the downloader first:
 
@@ -60,11 +56,11 @@ Predict an SMS message:
 python predict.py "Congratulations, you have won a prize"
 ```
 
-Running `python predict.py` without a message starts an interactive prompt. If the saved model file is missing, the predictor trains the models first.
+Running `python predict.py` without a message starts an interactive prompt. The predictor uses the saved `sms_spam_pipeline.pkl` model; run the notebook first if you need to generate or refresh that model.
 
 ## Project files
 
-- `train.py` — text preprocessing, ratio experiments, evaluation, report generation, and model saving.
+- `SMS_Spam_Training_Experiment.ipynb` — text preprocessing, ratio experiments, evaluation, report generation, and model saving.
 - `predict.py` — loads the saved model and predicts whether a message is ham or spam.
 - `download_data.py` — downloads the SMS dataset and saves it as `spam.csv` and `SMS.csv`.
 - `spam_ratio_experiment_report.txt` — detailed metrics and comparison from the latest training run.
